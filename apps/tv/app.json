@@ -1,0 +1,19 @@
+{
+  "expo": {
+    "name": "MoveQuest TV",
+    "slug": "motionplay-tv",
+    "version": "0.1.0",
+    "icon": "./assets/motionplay-icon.png",
+    "orientation": "landscape",
+    "plugins": [["@react-native-tvos/config-tv", { "isTV": true }], "expo-video"],
+    "android": {
+      "package": "com.motionplay.tv",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/motionplay-icon.png",
+        "backgroundColor": "#111410"
+      },
+      "softwareKeyboardLayoutMode": "pan",
+      "permissions": ["INTERNET", "ACCESS_NETWORK_STATE"]
+    }
+  }
+}

@@ -1,0 +1,16 @@
+node_modules/
+.expo/
+dist/
+apps/*/dist/
+apps/*/ios/
+.gradle/
+**/.cxx/
+**/build/
+**/local.properties
+*.apk
+*.aab
+*.keystore
+*.jks
+*.log
+.DS_Store
+.idea/

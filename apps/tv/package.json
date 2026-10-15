@@ -1,0 +1,25 @@
+{
+  "name": "motionplay-tv",
+  "version": "0.1.0",
+  "private": true,
+  "main": "expo/AppEntry",
+  "scripts": {
+    "start": "expo start",
+    "android": "expo run:android",
+    "build": "expo export --platform android"
+  },
+  "dependencies": {
+    "@motionplay/game-kit": "file:../../packages/game-kit",
+    "expo": "~57.0.0",
+    "expo-network": "~57.0.2",
+    "expo-video": "~57.0.5",
+    "react": "19.2.3",
+    "react-native": "npm:react-native-tvos@0.86.3-0",
+    "react-native-tcp-socket": "^6.3.0"
+  },
+  "devDependencies": {
+    "@react-native-tvos/config-tv": "^0.1.7",
+    "@types/react": "^19.3.0",
+    "typescript": "~6.0.3"
+  }
+}
