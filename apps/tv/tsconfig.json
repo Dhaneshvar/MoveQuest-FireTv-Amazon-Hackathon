@@ -1,4 +1,4 @@
 {
   "extends": "expo/tsconfig.base",
-  "compilerOptions": { "strict": true, "paths": { "@motionplay/game-kit": ["../../packages/game-kit/index.ts"] } }
+  "compilerOptions": { "strict": true, "paths": { "@motionplay/game-kit": ["../../packages/game-kit/index.ts"], "@motionplay/game-kit/*": ["../../packages/game-kit/*"] } }
 }

@@ -13,7 +13,7 @@
         "backgroundColor": "#111410"
       },
       "softwareKeyboardLayoutMode": "pan",
-      "permissions": ["INTERNET", "ACCESS_NETWORK_STATE"]
+      "permissions": ["INTERNET", "ACCESS_NETWORK_STATE", "RECORD_AUDIO"]
     }
   }
 }

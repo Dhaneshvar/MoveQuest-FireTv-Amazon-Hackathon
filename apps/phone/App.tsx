@@ -1,8 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Pressable, SafeAreaView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { NativeModules, PermissionsAndroid, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import TcpSocket from 'react-native-tcp-socket';
 import { Buffer } from 'buffer';
+import { commandHeaders, normalizeCommand, type RelayCommand } from './voiceCommands';
 
 const STREAM_PORT = 8080;
 const BOUNDARY = 'motionplayframe';
@@ -17,6 +18,11 @@ export default function App() {
   const [phoneIp, setPhoneIp] = useState('');
   const [clients, setClients] = useState(0);
   const [cameraError, setCameraError] = useState('');
+  const [commandText, setCommandText] = useState('');
+  const [voiceStatus, setVoiceStatus] = useState('Use this phone microphone for TV commands. Speech recognition may use your phone provider’s network service.');
+  const [listening, setListening] = useState(false);
+  const commands = useRef<RelayCommand[]>([]);
+  const sequence = useRef(0);
   const cameraRef = useRef<CameraView>(null);
   const serverRef = useRef<any>(null);
   const clientsRef = useRef<Set<Client>>(new Set());
@@ -39,6 +45,27 @@ export default function App() {
     serverRef.current?.close();
     serverRef.current = null;
     setRunning(false);
+    commands.current = [];
+  };
+
+  const sendCommand = (text: string) => {
+    const clean = normalizeCommand(text);
+    if (!runningRef.current || !clientsRef.current.size) { setVoiceStatus('Start the camera stream and connect the updated TV app before sending a command.'); return; }
+    if (!clean) { setVoiceStatus(`Heard “${text}”. Try pause, resume, squats, start session, or home.`); return; }
+    commands.current = [...commands.current.slice(-3), { id: ++sequence.current, text: clean, expiresAt: Date.now() + 10000 }];
+    setVoiceStatus(`Queued “${clean}” for the next camera frame.`);
+  };
+  const speakCommand = async () => {
+    if (listening) return;
+    if (!runningRef.current || !clientsRef.current.size) { setVoiceStatus('Connect the TV camera stream first.'); return; }
+    try {
+      const permission = await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.RECORD_AUDIO);
+      if (permission !== PermissionsAndroid.RESULTS.GRANTED) { setVoiceStatus('Microphone permission denied. You can type a command below.'); return; }
+      if (!NativeModules.PhoneVoice) throw new Error('Install the updated phone APK to enable its microphone button.');
+      setListening(true);
+      const text = await NativeModules.PhoneVoice.listen();
+      setCommandText(text); sendCommand(text);
+    } catch (error) { setVoiceStatus(String(error)); } finally { setListening(false); }
   };
 
   const startStream = async () => {
@@ -82,11 +109,16 @@ export default function App() {
           const picture = await cameraRef.current.takePictureAsync({ quality: 0.4, base64: true, skipProcessing: true });
           if (picture.base64 && runningRef.current) {
             const jpeg = Buffer.from(picture.base64, 'base64');
-            const header = Buffer.from(`--${BOUNDARY}\r\nContent-Type: image/jpeg\r\nContent-Length: ${jpeg.length}\r\n\r\n`);
+            commands.current = commands.current.filter(command => command.expiresAt > Date.now());
+            const command = commands.current[0];
+            const commandHeader = commandHeaders(command, Date.now(), text => Buffer.from(text).toString('base64'));
+            const header = Buffer.from(`--${BOUNDARY}\r\nContent-Type: image/jpeg\r\nContent-Length: ${jpeg.length}\r\n${commandHeader}\r\n`);
             const trailer = Buffer.from('\r\n');
+            let sent = false;
             for (const client of clientsRef.current) {
-              try { client.write(header); client.write(jpeg); client.write(trailer); } catch { clientsRef.current.delete(client); }
+              try { client.write(header); client.write(jpeg); client.write(trailer); sent = true; } catch { clientsRef.current.delete(client); }
             }
+            if (command && sent) { commands.current.shift(); setVoiceStatus(`Sent “${command.text}” to the TV. Check the TV for its response.`); }
           }
         } catch (error) {
           const message = error instanceof Error ? error.message : String(error);
@@ -103,7 +135,7 @@ export default function App() {
   return (
     <SafeAreaView style={styles.root}>
       {running && permission?.granted && <CameraView ref={cameraRef} style={styles.preview} facing="front" pictureSize="640x480" onCameraReady={() => { cameraReadyRef.current = true; setCameraReady(true); }} />}
-      <View style={styles.content}>
+      <ScrollView contentContainerStyle={styles.content}>
         <Text style={styles.logo}>motion<Text style={styles.accent}>play</Text></Text>
         <Text style={styles.eyebrow}>PRIVATE LOCAL CAMERA</Text>
         <Text style={styles.title}>Your phone is the camera.{ '\n' }The TV does the thinking.</Text>
@@ -116,8 +148,9 @@ export default function App() {
           {!!cameraError && <Text style={styles.error}>Camera frame error: {cameraError}</Text>}
         </View>
         <Pressable onPress={running ? stopStream : startStream} style={styles.button}><Text style={styles.buttonText}>{running ? 'STOP CAMERA STREAM' : permission?.granted ? 'START CAMERA STREAM' : 'ALLOW CAMERA & START'}</Text></Pressable>
+        {running && <View style={styles.card}><Text style={styles.cardTitle}>VOICE CONTROL FOR YOUR TV</Text><Text style={styles.status}>{voiceStatus}</Text><Pressable accessibilityRole="button" disabled={listening} onPress={() => void speakCommand()} style={styles.button}><Text style={styles.buttonText}>{listening ? 'LISTENING…' : 'SPEAK TV COMMAND'}</Text></Pressable><TextInput accessibilityLabel="TV command" value={commandText} onChangeText={setCommandText} placeholder="pause, resume, squats, start session…" placeholderTextColor="#788071" style={styles.ipInput} /><Pressable accessibilityRole="button" onPress={() => sendCommand(commandText)} style={styles.button}><Text style={styles.buttonText}>SEND TEXT COMMAND</Text></Pressable></View>}
         <Text style={styles.note}>Find your phone IP in Android Settings → Wi‑Fi → connected network. Both devices must be on the same network. Keep this app in the foreground.</Text>
-      </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -125,7 +158,7 @@ export default function App() {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#111410' },
   preview: { position: 'absolute', top: 0, left: 0, width: 360, height: 270, opacity: 0.12 },
-  content: { flex: 1, padding: 24, justifyContent: 'center', gap: 12 },
+  content: { flexGrow: 1, padding: 24, justifyContent: 'center', gap: 12 },
   logo: { color: '#F2F2EC', fontSize: 23, fontWeight: '900' }, accent: { color: '#B9F46A' },
   eyebrow: { color: '#B9F46A', fontSize: 10, fontWeight: '900', letterSpacing: 2 },
   title: { color: '#F3F2EA', fontSize: 28, lineHeight: 33, fontWeight: '900' },

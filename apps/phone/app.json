@@ -4,7 +4,7 @@
     "slug": "motionplay-companion",
     "version": "0.1.0",
     "orientation": "portrait",
-    "plugins": [["expo-camera", { "cameraPermission": "MoveQuest uses your camera to stream video over your local Wi-Fi to the Fire TV. Video is not uploaded to a cloud service.", "recordAudioAndroid": false }]],
-    "android": { "package": "com.motionplay.companion", "permissions": ["CAMERA", "INTERNET", "ACCESS_NETWORK_STATE"] }
+    "plugins": [["expo-camera", { "cameraPermission": "MoveQuest uses your camera to stream video over your local Wi-Fi to the Fire TV. Video is not uploaded to a cloud service.", "recordAudioAndroid": true }]],
+    "android": { "package": "com.motionplay.companion", "permissions": ["CAMERA", "INTERNET", "ACCESS_NETWORK_STATE", "RECORD_AUDIO"] }
   }
 }
